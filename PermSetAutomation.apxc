@@ -1,0 +1,260 @@
+public class PermSetAutomation {
+
+    
+/*
+    Anonymous block to kick off the method(s)
+
+====================
+START ANONYMOUS BLOCK
+====================
+
+PermSetAutomation perms = new PermSetAutomation();
+//creates our first perm set
+perms.ExamplePermsOne();    
+//creates our second perm set
+perms.ExamplePermsTwo();    
+
+====================
+END ANONYMOUS BLOCK
+====================
+
+
+*/
+    
+    
+    /*******************************************************************************************************
+* @description Method that is used to do the logic of assigning the correct permissions on the permission
+* set. This method is used by every other method in this class.
+*  
+* @param objectsAndCRUD Used to hold the objects that we will be assigning permissions to
+* @param PermissionSet The permission set that we are altering
+* @param existOP Used for future use cases. This is needed in case we are not inserting, but instead updating. However we will always be inserting with this class
+* @param objPerms List used to hold all of the correct object CRUD permissions that we upsert 
+* @param existFP Used for future use cases. This is needed in case we are not inserting, but instead updating. However we will always be inserting with this class
+* @param fieldsAndCRUD Used to hold the Fields that we will be assigning permissions to
+* @param fieldPerms List used to hold all of the correct field Read Edit permissions that we upsert 
+* @return dmlWrapper.  always null.
+********************************************************************************************************/
+    public void logicPerms(Map<String, List<Boolean>> objectsAndCRUD, PermissionSet pr, 
+                           Map<String, String> existOP, List<ObjectPermissions> objPerms,  
+                           Map<String, String> existFP, Map<String, List<Boolean>> fieldsAndCRUD, 
+                           List<FieldPermissions> fieldPerms)
+    {       
+        for(String objectName :objectsAndCRUD.keySet()) {
+            ObjectPermissions objPermission = new ObjectPermissions();
+            objPermission.ParentId = pr.Id;
+            objPermission.SobjectType = objectName;
+            objPermission.PermissionsRead = False;
+            objPermission.PermissionsCreate = False;
+            objPermission.PermissionsEdit = False;
+            objPermission.PermissionsDelete = False;
+            if (existOP.get(objectName) != null){
+                objPermission.Id = existOP.get(objectName);
+                system.debug('existOP:' + objPermission.Id); 
+            }
+            
+            if (objectsAndCRUD.get(objectName)[0] == True)  
+            {objPermission.PermissionsRead = true;}
+            if (objectsAndCRUD.get(objectName)[1] == True)  
+            {objPermission.PermissionsCreate = true;}
+            if (objectsAndCRUD.get(objectName)[2] == True)  
+            {objPermission.PermissionsEdit = true;}
+            if (objectsAndCRUD.get(objectName)[3] == True)
+            {objPermission.PermissionsDelete = true;}
+            objPerms.add(objPermission);	
+        }
+        
+        for(String fieldName :fieldsAndCRUD.keySet()) {
+            FieldPermissions fldPermission = new FieldPermissions();
+            fldPermission.ParentId = pr.Id;
+            fldPermission.SobjectType = fieldName.substringBefore('.');
+            fldPermission.Field = fieldName;
+            fldPermission.PermissionsRead = False;
+            fldPermission.PermissionsEdit = False;
+            if (existFP.get(fieldName) != null){
+                fldPermission.Id = existFP.get(fieldName);
+                system.debug('existFP:' + fldPermission.Id); 
+            }
+            if (fieldsAndCRUD.get(fieldName)[0] == True)  
+            {fldPermission.PermissionsRead = true;}
+            if (fieldsAndCRUD.get(fieldName)[1] == True)  
+            {fldPermission.PermissionsEdit = true;}
+            fieldPerms.add(fldPermission);	
+        }
+        
+        system.debug('object perms right before upsert:' + objPerms);
+        upsert objPerms;
+        
+        system.debug('field perms right before upsert:' + fieldPerms);
+        upsert fieldPerms;
+        
+    }
+    
+    
+/*******************************************************************************************************
+* @description Method that is used to set the appropriate permissions for the example permission set
+* @return Nothing
+********************************************************************************************************/
+    public void ExamplePermsOne(){
+        //Create the permission set and insert it so we can query on it. 
+        PermissionSet pr = new PermissionSet(Name='ExamplePermSetOne',Label='Example perm Set One');
+        insert pr;
+        String permSetName = pr.Id;
+        //We query on the Id because we know what the ID will be. This gets us the correct newly created permission set to work with. 
+        pr = [SELECT Id, Label, Name, Description FROM PermissionSet WHERE ID = :permSetName];
+        system.debug('pr id-' + pr.Id);
+        
+        //Object Permissions Setup
+        List<ObjectPermissions> op = new List<ObjectPermissions>();
+        op = [SELECT ID, SObjectType, ParentID FROM ObjectPermissions WHERE ParentId = :pr.Id];
+        Map<String, String> existOP = new Map<String, String>();
+        //existOP is utilized so we can work on profiles if needed as well as permission sets. 
+        for (ObjectPermissions eop : op){
+            String objname = eop.SobjectType;
+            String objid = eop.Id;
+            existOp.put(objname, objid);
+        }
+        List<ObjectPermissions> objPerms = new List<ObjectPermissions>();
+        Map<String, List<Boolean>> objectsAndCRUD = new Map<String, List<Boolean>>();
+        List<Map<String, List<Boolean>>> objectsAndCRUDcollection = new List <Map<String, List<Boolean>>>();
+        
+        //Field Permissions Setup
+        List<FieldPermissions> fp = new List<FieldPermissions>();
+        fp = [SELECT ID, SObjectType, Field, ParentID FROM FieldPermissions WHERE ParentId = :pr.Id];
+        Map<String, String> existFP = new Map<String, String>();
+        for (FieldPermissions efp : fp){
+            String fldname = efp.Field;
+            String fldid = efp.Id;
+            existFp.put(fldname, fldid);
+        }
+        List<FieldPermissions> fieldPerms = new List<FieldPermissions>();
+        Map<String, List<Boolean>> fieldsAndCRUD = new Map<String, List<Boolean>>();
+        List<Map<String, List<Boolean>>> FieldsAndFSLcollection = new List <Map<String, List<Boolean>>>();
+        
+        
+        //========================================================
+        //ENTER YOUR OBJECTS and CRUD ACCESS BELOW
+        //========================================================   
+        
+        //READ - CREATE - EDIT - DELETE
+        //Grant read and edit access to account
+        objectsAndCRUD.put('Account', new List<Boolean>{True, False, True, False});
+        //Grant read access to case
+        objectsAndCRUD.put('Case', new List<Boolean>{True, False, False, False});
+		//Grant read access to a custom object called kollCustomObject api name = kollCustomObject__c. 
+		//Ive comment it out in github because it will error out in most orgs as you probably dont have a custom object in your org with my name.
+		//This is simply to illustrate how to use a custom object. 
+        objectsAndCRUD.put('kollCustomObject__c', new List<Boolean>{True, True, False, False});
+        
+      
+        objectsAndCRUDcollection.add(objectsAndCRUD);
+        system.debug('objectsAndCRUDcollection after we insert two objects' + objectsAndCRUDcollection);
+        
+        //========================================================
+        //ENTER YOUR FIELD AND READ/EDIT ACCESS BELOW
+        //========================================================   
+       	// read access to account fax field
+        fieldsAndCRUD.put('Account.Fax', new List<Boolean>{True, False});
+  		//read access to account descirption field
+  		fieldsAndCRUD.put('Account.Description', new List<Boolean>{True, False});
+		//read access to case Priority	field
+  		fieldsAndCRUD.put('Case.Priority', new List<Boolean>{True, False});
+
+        //read and edit to a field on my custom object. This is also commented out but it works in my own org because i have this custom field currently created on my own custom object.
+        //This is for demostration purposes. 
+        fieldsAndCRUD.put('kollCustomObject__c.textarea__c', new List<Boolean>{True, True});
+        FieldsAndFSLcollection.add(fieldsAndCRUD);
+        
+        //Call the method to preform the logic of inserting the permissions based on the above object and field level declarations
+        logicPerms(objectsAndCRUD, pr, existOP, objPerms, existFP, fieldsAndCRUD, fieldPerms);
+        
+        
+    }
+    
+    
+    
+       
+/*******************************************************************************************************
+* @description Method that is used to set the appropriate permissions for the example permission set with higher access levels then perm set one
+* @return Nothing
+********************************************************************************************************/
+    public void ExamplePermsTwo(){
+        //Create the permission set and insert it so we can query on it. 
+        PermissionSet pr = new PermissionSet(Name='ExamplePermSetTwo',Label='Example Perm Set two');
+        insert pr;
+        String permSetName = pr.Id;
+        //We query on the Id because we know what the ID will be. This gets us the correct newly created permission set to work with. 
+        pr = [SELECT Id, Label, Name, Description FROM PermissionSet WHERE ID = :permSetName];
+        system.debug('pr id-' + pr.Id);
+        
+        //Object Permissions Setup
+        List<ObjectPermissions> op = new List<ObjectPermissions>();
+        op = [SELECT ID, SObjectType, ParentID FROM ObjectPermissions WHERE ParentId = :pr.Id];
+        Map<String, String> existOP = new Map<String, String>();
+        //existOP is utilized so we can work on profiles if needed as well as permission sets. 
+        for (ObjectPermissions eop : op){
+            String objname = eop.SobjectType;
+            String objid = eop.Id;
+            existOp.put(objname, objid);
+        }
+        List<ObjectPermissions> objPerms = new List<ObjectPermissions>();
+        Map<String, List<Boolean>> objectsAndCRUD = new Map<String, List<Boolean>>();
+        List<Map<String, List<Boolean>>> objectsAndCRUDcollection = new List <Map<String, List<Boolean>>>();
+        
+        //Field Permissions Setup
+        List<FieldPermissions> fp = new List<FieldPermissions>();
+        fp = [SELECT ID, SObjectType, Field, ParentID FROM FieldPermissions WHERE ParentId = :pr.Id];
+        Map<String, String> existFP = new Map<String, String>();
+        for (FieldPermissions efp : fp){
+            String fldname = efp.Field;
+            String fldid = efp.Id;
+            existFp.put(fldname, fldid);
+        }
+        List<FieldPermissions> fieldPerms = new List<FieldPermissions>();
+        Map<String, List<Boolean>> fieldsAndCRUD = new Map<String, List<Boolean>>();
+        List<Map<String, List<Boolean>>> FieldsAndFSLcollection = new List <Map<String, List<Boolean>>>();
+        
+        
+        
+        //========================================================
+        //ENTER YOUR OBJECTS and CRUD ACCESS BELOW
+        //========================================================   
+        
+        //READ - CREATE - EDIT - DELETE
+        //Grant read and edit create and delete access to account
+        objectsAndCRUD.put('Account', new List<Boolean>{True, True, True, True});
+        //Grant read edit create and delete access to case
+        objectsAndCRUD.put('Case', new List<Boolean>{True, True, True, True});
+		//Grant read edit create and delete access to a custom object called kollCustomObject api name = kollCustomObject__c. 
+		//Ive comment it out in github because it will error out in most orgs as you probably dont have a custom object in your org with my name.
+		//This is simply to illustrate how to use a custom object. 
+        objectsAndCRUD.put('kollCustomObject__c', new List<Boolean>{True, True, True, True});
+        
+      
+        objectsAndCRUDcollection.add(objectsAndCRUD);
+        system.debug('objectsAndCRUDcollection after we insert two objects' + objectsAndCRUDcollection);
+        
+        //========================================================
+        //ENTER YOUR FIELD AND READ/EDIT ACCESS BELOW
+        //========================================================   
+       	// read and edit access to account fax field
+        fieldsAndCRUD.put('Account.Fax', new List<Boolean>{True, True});
+  		//read access to account descirption field
+  		fieldsAndCRUD.put('Account.Description', new List<Boolean>{True, False});
+		//read and edit access to case Priority	field
+  		fieldsAndCRUD.put('Case.Priority', new List<Boolean>{True, True});
+
+        //read and edit to a field on my custom object. This is also commented out but it works in my own org because i have this custom field currently created on my own custom object.
+        //This is for demostration purposes. 
+        fieldsAndCRUD.put('kollCustomObject__c.textarea__c', new List<Boolean>{True, True});
+        FieldsAndFSLcollection.add(fieldsAndCRUD);
+        
+        //Call the method to preform the logic of inserting the permissions based on the above object and field level declarations
+        logicPerms(objectsAndCRUD, pr, existOP, objPerms, existFP, fieldsAndCRUD, fieldPerms);
+        
+        
+    }
+        
+    
+    
+}

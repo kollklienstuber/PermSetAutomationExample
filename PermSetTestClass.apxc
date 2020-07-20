@@ -1,0 +1,27 @@
+@isTest
+public class PermSetTestClass {
+    
+    
+    @isTest static void AllPerms() {
+        
+        
+        PermSetAutomation perms = new PermSetAutomation();
+        //creates our first perm set
+        perms.ExamplePermsOne();    
+        //creates our second perm set
+        perms.ExamplePermsTwo();    
+        
+        
+        
+        PermissionSet permSet1 = [SELECT Id, Name FROM PermissionSet WHERE Name = 'ExamplePermSetOne'];
+        PermissionSet permSet2 = [SELECT Id, Name FROM PermissionSet WHERE Name = 'ExamplePermSetTwo'];
+   
+
+        System.assertEquals(permSet1.Name,'ExamplePermSetOne');
+        System.assertEquals(permSet2.Name,'ExamplePermSetTwo');
+ 
+        
+    }
+    
+    
+}
